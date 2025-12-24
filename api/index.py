@@ -8,7 +8,7 @@ app = Flask(__name__,
             template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
 
 # PicGo API 配置
-PICGO_API_URL = "https://www.picgo.net/api/1/upload"
+PICGO_API_URL = "https://picui.cn/api/v1"
 PICGO_API_KEY = os.getenv("PICGO_API_KEY", "YOUR_API_KEY")  # 替换为你的 PicGo API 密钥
 
 # ImgURL API 配置
