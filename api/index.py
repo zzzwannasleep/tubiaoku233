@@ -184,9 +184,8 @@ def update_gist(name, url):
     return {"success": True, "name": name}
             
 def upload_to_picui(image):
-    url = "https://picui.cn/api/upload"
+    url = "https://picui.cn/api/upload.php"   # ← 改成 .php
     files = {"image": (image.filename, image.stream, image.mimetype)}
-    # 从环境变量读 token，没有就传空，接口仍可用但不保永久
     token = os.getenv("PICUI_TOKEN", "")
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
