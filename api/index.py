@@ -38,14 +38,14 @@ def upload_image():
         if not image or not name:
             return jsonify({"error": "缺少图片或名称"}), 400
 
-       upload_service = os.getenv("UPLOAD_SERVICE", "PICGO").upper()
-
-if upload_service == "IMGURL":
-    image_url = upload_to_imgurl(image)
-elif upload_service == "PICUI":          # ← 新增
-    image_url = upload_to_picui(image)
-else:
-    image_url = upload_to_picgo(image)
+               # 根据环境变量决定使用哪个上传接口
+        upload_service = os.getenv("UPLOAD_SERVICE", "PICGO").upper()
+        if upload_service == "IMGURL":
+            image_url = upload_to_imgurl(image)
+        elif upload_service == "PICUI":
+            image_url = upload_to_picui(image)
+        else:
+            image_url = upload_to_picgo(image)
 
         if not image_url:
             return jsonify({"error": "图片上传失败", "details": f"使用 {upload_service} 服务上传失败"}), 500
