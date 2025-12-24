@@ -31,3 +31,23 @@ async function uploadImage() {
     messageDiv.textContent = `上传失败：${error.message}`;
   }
 }
+/* ===== 随机背景（接口版）===== */
+(function () {
+
+  // 👇👇👇 把你的「随机图片 URL」填在这里
+  const randomImageURL = "https://www.loliapi.com/acg/";
+
+  document.body.style.backgroundImage = `
+    url(${randomImageURL}),
+    radial-gradient(900px 600px at 12% 18%, rgba(255,107,214,.25), transparent 60%),
+    radial-gradient(800px 520px at 85% 20%, rgba(57,213,255,.20), transparent 55%),
+    radial-gradient(900px 650px at 55% 92%, rgba(124,107,255,.18), transparent 60%),
+    linear-gradient(135deg, #ffe9f6, #e9f1ff, #eafff7)
+  `;
+
+  document.body.style.backgroundSize = "cover";
+  document.body.style.backgroundPosition = "center";
+  document.body.style.backgroundRepeat = "no-repeat";
+  document.body.style.backgroundAttachment = "fixed";
+
+})();
