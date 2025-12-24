@@ -3,9 +3,9 @@
 <p align="center">
   <img src="https://img.picgo.net/2025/07/13/PicStoreJson5de53c3c9bd498d4.jpg" alt="" width="400px"/>
   <br>
-  <a href="https://pic-store-json.vercel.app">DEMO</a>
+  <a href="[上传链接](https://tubiao666.greentea520.xyz/)">DEMO</a>
   <br>
-  <span>1. 不要肆意上传 2. 广告不要上传 3. 乱七八糟的不要上传</span>
+  <span>1. 不要肆意上传 2. 广告不要上传 3. 乱七八糟的不要上传 4.请好好命名 没有的再上传 </span>
 </p>
 
 ## 项目用途
@@ -125,11 +125,14 @@
    - `IMGURL_API_UID`：你的 ImgURL UID（如果使用 ImgURL 服务）。
    - `IMGURL_API_TOKEN`：你的 ImgURL TOKEN（如果使用 ImgURL 服务）。
    - `IMGURL_ALBUM_ID`：相册 ID（可选，如果不使用相册功能可以留空，如果使用 ImgURL 服务可选配置）。
+   - `IMGURL_ALBUM_ID`：相册 ID（可选，如果不使用相册功能可以留空，如果使用 ImgURL 服务可选配置）。
 4. 点击 "Deploy"，等待部署完成。
 
 **注意**：
 - 替换 `YOUR_GITHUB_REPOSITORY_URL` 为你的实际 GitHub 仓库 URL。
 - 确保仓库包含所有必要文件（`api/index.py`, `static/`, `templates/`, `requirements.txt`, `vercel.json`）。
+- Zzz：补充说明一下 这个项目可以直接Fork我这个 改好了 用[PICUI]([https://vercel.com/](https://picui.cn/))这个图床 可以自己改 问问GPT GEMINI那些可以改好的
+- 需要的东西 我已经在上面的步骤补齐了 那些IMGURL PICGO可以乱填 但是PICUI一定要好好填
 
 ## 使用方法
 
@@ -203,13 +206,3 @@
   - 确认 `PICGO_API_KEY` 有效。
   - 检查 Gist 是否存在且 `GITHUB_TOKEN` 有 `gist` 权限。
 - **页面不显示**：验证 `vercel.json` 中的路由配置，确保静态文件正确加载。
-
-## 免费AI抠图软件推荐(非广)
-可以先用chatgpt对图片进行“剪影反白”，并“背景透明”，或者用下面的软件一键抠图
-<p align="center">
-  <img src="https://img.picgo.net/2025/07/13/9918cb3bf6b53967de011ed8b2b7fab708897cb381bff4fa.jpg" alt="" width="400px"/>
-  <br>
-  <a href="https://apps.apple.com/cn/app/%E6%A4%B0%E5%AD%90%E8%AE%BE%E8%AE%A1-%E6%9E%81%E7%AE%80%E4%B8%93%E4%B8%9A%E8%83%8C%E6%99%AF%E7%A7%BB%E9%99%A4/id6736813907">椰子设计 - 极简专业背景移除</a>
-  <br>
-  <span>一键抠图，谁用谁知道</span>
-</p>
