@@ -1,7 +1,7 @@
 # 📦 PicStoreJson
 
 <p align="center">
-  <a href="https://tubiao666.greentea520.xyz"><b>🚀 在线体验</b></a> ·
+  <a href="https://tubiao666.greentea520.xyz"><b>🚀 在线体验</b></a>
   <a href="https://github.com/Zzzwannasleep/tubiaoku233"><b>📦 GitHub 仓库</b></a>
   <a href="https://github.com/huangxd-/PicStoreJson"><b>📦 原 GitHub 仓库</b></a>
 </p>
