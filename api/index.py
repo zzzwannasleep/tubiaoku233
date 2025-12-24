@@ -8,7 +8,7 @@ app = Flask(__name__,
             template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
 
 # PicGo API 配置
-PICGO_API_URL = "https://picui.cn/api/v1"
+PICGO_API_URL = "https://www.picgo.net/api/1/upload"
 PICGO_API_KEY = os.getenv("PICGO_API_KEY", "YOUR_API_KEY")  # 替换为你的 PicGo API 密钥
 
 # ImgURL API 配置
@@ -38,15 +38,14 @@ def upload_image():
         if not image or not name:
             return jsonify({"error": "缺少图片或名称"}), 400
 
-        # 根据环境变量决定使用哪个上传接口
-        upload_service = os.getenv("UPLOAD_SERVICE", "PICGO")  # 默认使用 PICGO，可以设置为 IMGURL
+       upload_service = os.getenv("UPLOAD_SERVICE", "PICGO").upper()
 
-        if upload_service.upper() == "IMGURL":
-            # 使用 ImgURL API 上传
-            image_url = upload_to_imgurl(image)
-        else:
-            # 使用 PicGo API 上传（默认）
-            image_url = upload_to_picgo(image)
+if upload_service == "IMGURL":
+    image_url = upload_to_imgurl(image)
+elif upload_service == "PICUI":          # ← 新增
+    image_url = upload_to_picui(image)
+else:
+    image_url = upload_to_picgo(image)
 
         if not image_url:
             return jsonify({"error": "图片上传失败", "details": f"使用 {upload_service} 服务上传失败"}), 500
@@ -183,7 +182,25 @@ def update_gist(name, url):
         return {"success": False, "error": "无法更新 Gist"}
 
     return {"success": True, "name": name}
-
+            
+# ----------------  新增 picui.cn 上传  ----------------
+def upload_to_picui(image):
+    url = "https://picui.cn/api/upload"
+    files = {"image": (image.filename, image.stream, image.mimetype)}
+    try:
+        r = requests.post(url, files=files, timeout=15)
+        if r.status_code != 200:
+            print("picui 上传失败", r.text)
+            return None
+        data = r.json()
+        if data.get("code") == 200:
+            return data["data"]["url"]
+        print("picui 业务错误", data)
+    except Exception as e:
+        print("picui 异常", e)
+    return None
 
 if __name__ == "__main__":
     app.run()
+
+
