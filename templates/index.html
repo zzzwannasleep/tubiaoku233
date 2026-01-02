@@ -15,17 +15,24 @@
     <h1>Zzzの图标库</h1>
 
     <div class="form-group">
-      <label for="name">请输入图片名字(一定要好好写 不要乱传PLZ)</label>
-      <input type="text" id="name" placeholder="请输入名称" required>
-    </div>
+  <label for="name">请输入图片名字(一定要好好写 不要乱传PLZ)</label>
+  <input type="text" id="name" placeholder="单张上传时可手填名称（批量可不填）">
+</div>
 
-    <div class="form-group">
-      <label for="image">选择图片</label>
-      <input type="file" id="image" accept="image/*" required>
-    </div>
+<div class="form-group">
+  <label for="image">选择图片（支持多选）</label>
+  <input type="file" id="image" accept="image/*" multiple required>
+</div>
 
-    <button class="upload-btn" onclick="uploadImage()">上传</button>
-    <div id="message"></div>
+<div class="form-group" style="display:flex; align-items:center; gap:10px;">
+  <input type="checkbox" id="useFilename" checked>
+  <label for="useFilename" style="margin:0;">批量时自动用文件名（去扩展名）作为名称</label>
+</div>
+
+<button class="upload-btn" onclick="uploadImage()">上传</button>
+<div id="message"></div>
+<ul id="resultList"></ul>
+
 
     <p class="centered-link">
       <a href="https://gist.githubusercontent.com/{{ github_user }}/{{ gist_id }}/raw/icons.json" target="_blank">
