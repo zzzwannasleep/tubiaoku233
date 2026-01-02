@@ -1,36 +1,83 @@
 async function uploadImage() {
   const nameInput = document.getElementById("name");
   const imageInput = document.getElementById("image");
+  const useFilename = document.getElementById("useFilename");
   const messageDiv = document.getElementById("message");
+  const resultList = document.getElementById("resultList");
 
-  if (!nameInput.value || !imageInput.files[0]) {
+  const files = Array.from(imageInput.files || []);
+  resultList.innerHTML = "";
+
+  if (files.length === 0) {
+    messageDiv.textContent = "请选择图片！";
+    return;
+  }
+
+  // 规则：
+  // - 单张上传：默认仍要求手填 name（保持你的原习惯）
+  // - 批量上传：name 可不填；默认用文件名
+  const manualName = (nameInput.value || "").trim();
+  if (files.length === 1 && !manualName) {
+    // 如果你也想“单张不填就用文件名”，把这行判断删掉即可
     messageDiv.textContent = "请输入名称并选择图片！";
     return;
   }
 
-  const formData = new FormData();
-  formData.append("source", imageInput.files[0]);
-  formData.append("name", nameInput.value);
+  function filenameToName(filename) {
+    const base = filename.split(/[\\/]/).pop();
+    return base.replace(/\.[^.]+$/, "");
+  }
 
-  messageDiv.textContent = "正在上传...";
+  function addResult(ok, name, info) {
+    const li = document.createElement("li");
+    li.style.marginTop = "6px";
+    li.innerHTML = ok
+      ? `✅ <b>${name}</b> ${info ? `→ <a href="${info}" target="_blank">${info}</a>` : ""}`
+      : `❌ <b>${name || "(未命名)"}</b> → ${info || "失败"}`;
+    resultList.appendChild(li);
+  }
+
+  messageDiv.textContent = "开始上传...";
   try {
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+    // ✅ 串行逐个上传（最稳，不容易超时/被服务限制）
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
 
-    const data = await response.json();
-    if (response.ok) {
-      messageDiv.textContent = `上传成功！名称: ${data.name}`;
-      nameInput.value = "";
-      imageInput.value = "";
-    } else {
-      messageDiv.textContent = `错误：${data.error}`;
+      // 批量：默认用文件名；单张：用手填
+      let name = manualName;
+      if (files.length > 1) {
+        name = useFilename.checked ? filenameToName(f.name) : (manualName || filenameToName(f.name));
+      }
+
+      const formData = new FormData();
+      formData.append("source", f);   // 你的后端字段名是 source
+      formData.append("name", name);  // 批量也会传一个 name（后端会做唯一化）
+
+      messageDiv.textContent = `正在上传 ${i + 1}/${files.length}: ${f.name}`;
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data.success) {
+        // 你当前后端单张只回 name；如果你按我建议加了 url，则这里也能显示 url
+        addResult(true, data.name || name, data.url || "");
+      } else {
+        addResult(false, name, data.error || `HTTP ${response.status}`);
+      }
     }
+
+    messageDiv.textContent = `上传完成：${files.length}/${files.length}`;
+    nameInput.value = "";
+    imageInput.value = "";
   } catch (error) {
     messageDiv.textContent = `上传失败：${error.message}`;
   }
 }
+
 /* ===== 随机背景（接口版）===== */
 (function () {
 
