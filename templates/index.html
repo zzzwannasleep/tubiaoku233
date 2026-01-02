@@ -29,7 +29,11 @@
   <label for="useFilename" style="margin:0;">批量时自动用文件名（去扩展名）作为名称</label>
 </div>
 
-<button class="upload-btn" onclick="uploadImage()">上传</button>
+<div style="display:flex; gap:12px; justify-content:center;">
+  <button class="upload-btn" onclick="uploadSingle()">单张上传</button>
+  <button class="upload-btn" onclick="uploadBatch()">批量上传</button>
+</div>
+
 <div id="message"></div>
 <ul id="resultList"></ul>
 
