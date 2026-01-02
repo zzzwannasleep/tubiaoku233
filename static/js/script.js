@@ -1,3 +1,36 @@
+/* ========== 工具函数 ========== */
+function filenameToName(filename) {
+  return filename.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
+}
+
+function prettySize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function hidePreview() {
+  const previewBox = document.getElementById("batchPreview");
+  const previewList = document.getElementById("previewList");
+  if (previewBox && previewList) {
+    previewList.innerHTML = "";
+    previewBox.style.display = "none";
+  }
+}
+
+function hideProgress() {
+  const progressWrap = document.getElementById("progressWrap");
+  const progressFill = document.getElementById("progressFill");
+  const progressText = document.getElementById("progressText");
+  const progressFile = document.getElementById("progressFile");
+  if (progressWrap) progressWrap.style.display = "none";
+  if (progressFill) progressFill.style.width = "0%";
+  if (progressText) progressText.textContent = "0/0";
+  if (progressFile) progressFile.textContent = "";
+}
+
+/* ========== 单张上传 ========== */
 async function uploadSingle() {
   const nameInput = document.getElementById("name");
   const imageInput = document.getElementById("image");
@@ -7,15 +40,17 @@ async function uploadSingle() {
   if (!nameInput || !imageInput || !messageDiv) return;
   if (resultList) resultList.innerHTML = "";
 
-  if (!nameInput.value.trim() || !imageInput.files[0]) {
+  const name = nameInput.value.trim();
+  const file = imageInput.files[0];
+
+  if (!name || !file) {
     messageDiv.textContent = "请输入名称并选择图片！";
     return;
   }
 
-  // 单张上传：只取第一张
   const formData = new FormData();
-  formData.append("source", imageInput.files[0]);
-  formData.append("name", nameInput.value.trim());
+  formData.append("source", file);
+  formData.append("name", name);
 
   messageDiv.textContent = "正在上传...";
   try {
@@ -32,18 +67,26 @@ async function uploadSingle() {
       nameInput.value = "";
       imageInput.value = "";
       hidePreview();
+      hideProgress();
     } else {
-      messageDiv.textContent = `错误：${data.error || response.status}`;
+      messageDiv.textContent = `错误：${data.error || `HTTP ${response.status}`}`;
     }
   } catch (error) {
     messageDiv.textContent = `上传失败：${error.message}`;
   }
 }
 
+/* ========== 批量上传（带进度条） ========== */
 async function uploadBatch() {
   const imageInput = document.getElementById("image");
   const messageDiv = document.getElementById("message");
   const resultList = document.getElementById("resultList");
+
+  // 进度条元素
+  const progressWrap = document.getElementById("progressWrap");
+  const progressText = document.getElementById("progressText");
+  const progressFile = document.getElementById("progressFile");
+  const progressFill = document.getElementById("progressFill");
 
   if (!imageInput || !messageDiv) return;
   if (resultList) resultList.innerHTML = "";
@@ -54,28 +97,34 @@ async function uploadBatch() {
     return;
   }
   if (files.length === 1) {
-    messageDiv.textContent = "批量上传请至少选择 2 张图片（或用单张上传按钮）。";
+    messageDiv.textContent = "批量上传请至少选择 2 张图片（或用单张上传）。";
     return;
-  }
-
-  function filenameToName(filename) {
-    return filename.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
   }
 
   function addResult(ok, name, info) {
     if (!resultList) return;
     const li = document.createElement("li");
-    li.style.marginTop = "6px";
     li.innerHTML = ok
       ? `✅ <b>${name}</b> ${info ? `→ <a href="${info}" target="_blank">${info}</a>` : ""}`
       : `❌ <b>${name}</b> → ${info || "失败"}`;
     resultList.appendChild(li);
   }
 
+  // 显示进度条
+  if (progressWrap) progressWrap.style.display = "block";
+  if (progressFill) progressFill.style.width = "0%";
+  if (progressText) progressText.textContent = `0/${files.length}`;
+  if (progressFile) progressFile.textContent = "";
+
   try {
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
-      const name = filenameToName(f.name); // ✅ 批量：强制用文件名
+      const name = filenameToName(f.name);
+
+      // 更新进度（开始上传当前项）
+      if (progressFile) progressFile.textContent = f.name;
+      if (progressText) progressText.textContent = `${i}/${files.length}`;
+      if (progressFill) progressFill.style.width = `${Math.round((i / files.length) * 100)}%`;
 
       const formData = new FormData();
       formData.append("source", f);
@@ -93,37 +142,34 @@ async function uploadBatch() {
       if (response.ok && data.success) {
         addResult(true, data.name || name, data.url || "");
       } else {
-        addResult(false, name, data.error || response.status);
+        addResult(false, name, data.error || `HTTP ${response.status}`);
       }
+
+      // 完成一项后更新进度
+      const done = i + 1;
+      if (progressText) progressText.textContent = `${done}/${files.length}`;
+      if (progressFill) progressFill.style.width = `${Math.round((done / files.length) * 100)}%`;
     }
 
     messageDiv.textContent = `批量上传完成：${files.length}/${files.length}`;
     imageInput.value = "";
+
+    // 上传结束：停留 1 秒再隐藏进度条
+    setTimeout(() => hideProgress(), 1000);
     hidePreview();
   } catch (err) {
     messageDiv.textContent = `批量上传失败：${err.message}`;
+    hideProgress();
   }
 }
 
-/* ===== 批量预览：选择多张时显示将使用的名称 ===== */
+/* ========== 批量预览：选择多张时显示将使用的名称 ========== */
 (function setupBatchPreview() {
   const imageInput = document.getElementById("image");
   const previewBox = document.getElementById("batchPreview");
   const previewList = document.getElementById("previewList");
 
   if (!imageInput || !previewBox || !previewList) return;
-
-  function filenameToName(filename) {
-    return filename.split(/[\\/]/).pop().replace(/\.[^.]+$/, "");
-  }
-
-  function prettySize(bytes) {
-    if (bytes < 1024) return `${bytes} B`;
-    const kb = bytes / 1024;
-    if (kb < 1024) return `${kb.toFixed(1)} KB`;
-    const mb = kb / 1024;
-    return `${mb.toFixed(1)} MB`;
-  }
 
   imageInput.addEventListener("change", () => {
     const files = Array.from(imageInput.files || []);
@@ -147,16 +193,7 @@ async function uploadBatch() {
   });
 })();
 
-function hidePreview() {
-  const previewBox = document.getElementById("batchPreview");
-  const previewList = document.getElementById("previewList");
-  if (previewBox && previewList) {
-    previewList.innerHTML = "";
-    previewBox.style.display = "none";
-  }
-}
-
-/* ===== 随机背景（接口版）===== */
+/* ========== 随机背景（接口版） ========== */
 (function () {
   const randomImageURL = "https://www.loliapi.com/acg/";
 
