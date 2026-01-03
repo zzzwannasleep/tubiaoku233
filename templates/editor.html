@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>图标在线编辑</title>
+
+  <!-- 复用你项目的主样式（可选：如果不想复用就删这一行） -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=editor_1">
+
+  <!-- 编辑页专用样式 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}?v=editor_1">
+
+  <!-- Cropper.js（裁剪） -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+</head>
+
+<body class="editor-body">
+
+  <div class="editor-topbar">
+    <div class="topbar-left">
+      <a class="topbar-back" href="/">← 返回上传页</a>
+      <span class="topbar-title">图标在线编辑（裁剪 + 手动抠图）</span>
+    </div>
+    <div class="topbar-right">
+      <button class="mini-btn" id="btnReset">重置</button>
+    </div>
+  </div>
+
+  <div class="editor-layout">
+    <!-- 左侧工具 -->
+    <aside class="editor-panel">
+      <div class="panel-block">
+        <div class="panel-title">1) 导入图片</div>
+        <input id="fileInput" type="file" accept="image/*">
+        <div class="panel-hint">建议上传 PNG 或清晰 JPG</div>
+      </div>
+
+      <div class="panel-block">
+        <div class="panel-title">2) 模式选择</div>
+        <div class="btn-col">
+          <button class="tool-btn" id="btnModeCrop">进入裁剪模式</button>
+          <button class="tool-btn" id="btnModeCutout">进入手动抠图模式</button>
+        </div>
+        <div class="panel-hint">
+          裁剪：拖动裁剪框，固定 1:1<br/>
+          抠图：用橡皮擦把背景擦透明
+        </div>
+      </div>
+
+      <div class="panel-block">
+        <div class="panel-title">3) 抠图画笔</div>
+        <label class="inline-row">
+          画笔大小
+          <input id="brushSize" type="range" min="5" max="80" value="25">
+          <span id="brushSizeText">25</span>
+        </label>
+        <button class="tool-btn" id="btnUndo">撤销一步</button>
+        <div class="panel-hint">仅在“手动抠图模式”生效</div>
+      </div>
+
+      <div class="panel-block">
+        <div class="panel-title">4) 导出</div>
+        <div class="btn-col">
+          <button class="tool-btn" id="btnExportSquare">导出方形 PNG（512）</button>
+          <button class="tool-btn" id="btnExportCircle">导出圆形 PNG（512）</button>
+        </div>
+        <div class="panel-hint">圆形导出会自动做透明圆形遮罩</div>
+      </div>
+
+      <div class="panel-block">
+        <div class="panel-title">使用说明</div>
+        <ol class="panel-ol">
+          <li>先导入图片</li>
+          <li>裁剪模式：调整 1:1 裁剪框</li>
+          <li>抠图模式：擦掉背景（透明）</li>
+          <li>导出 PNG（方形/圆形）</li>
+        </ol>
+      </div>
+    </aside>
+
+    <!-- 中央工作区 -->
+    <main class="editor-stage">
+      <!-- 裁剪用 -->
+      <div id="cropWrap" class="stage-box" style="display:none;">
+        <img id="cropImage" alt="crop" />
+      </div>
+
+      <!-- 抠图用 -->
+      <div id="cutoutWrap" class="stage-box" style="display:none;">
+        <canvas id="cutoutCanvas"></canvas>
+      </div>
+
+      <!-- 空态 -->
+      <div id="emptyWrap" class="stage-empty">
+        <div class="empty-title">请先导入一张图片</div>
+        <div class="empty-sub">支持：裁剪（1:1）/ 手动抠图（橡皮擦）</div>
+      </div>
+
+      <!-- 导出预览 -->
+      <div id="exportWrap" class="export-wrap" style="display:none;">
+        <div class="export-title">导出预览（右键/长按保存）</div>
+        <img id="exportImg" alt="export" />
+      </div>
+    </main>
+  </div>
+
+  <!-- 依赖库 -->
+  <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+
+  <!-- 编辑页逻辑 -->
+  <script src="{{ url_for('static', filename='js/editor.js') }}?v=editor_1"></script>
+</body>
+</html>
