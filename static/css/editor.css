@@ -3,6 +3,17 @@
   min-height:100vh;
   display:flex;
   flex-direction:column;
+
+  /* 兜底背景（即使随机图没加载也好看） */
+  background:
+    radial-gradient(900px 600px at 12% 18%, rgba(255,107,214,.25), transparent 60%),
+    radial-gradient(800px 520px at 85% 20%, rgba(57,213,255,.20), transparent 55%),
+    radial-gradient(900px 650px at 55% 92%, rgba(124,107,255,.18), transparent 60%),
+    linear-gradient(135deg, #ffe9f6, #e9f1ff, #eafff7);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 .editor-topbar{
@@ -24,6 +35,7 @@
   font-weight:700;
   color: rgba(43,45,58,.92);
 }
+
 .topbar-back{
   text-decoration:none;
   padding:6px 10px;
@@ -31,6 +43,12 @@
   border: 1px solid rgba(140,160,210,.22);
   background: rgba(255,255,255,.55);
   color: rgba(43,45,58,.92);
+  transition: transform .12s ease, background .2s ease, box-shadow .2s ease;
+}
+.topbar-back:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.78);
+  box-shadow: 0 10px 18px rgba(35,50,90,.10);
 }
 
 .mini-btn{
@@ -40,6 +58,15 @@
   cursor:pointer;
   background: rgba(255,255,255,.75);
   border: 1px solid rgba(140,160,210,.22);
+  transition: transform .12s ease, background .2s ease, box-shadow .2s ease;
+}
+.mini-btn:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.88);
+  box-shadow: 0 10px 18px rgba(35,50,90,.10);
+}
+.mini-btn:active{
+  transform: translateY(0) scale(.99);
 }
 
 .editor-layout{
@@ -87,6 +114,7 @@
   gap:10px;
 }
 
+/* 按钮统一：hover/active 更像首页 */
 .tool-btn{
   width:100%;
   border:none;
@@ -94,7 +122,24 @@
   padding: 10px 12px;
   cursor:pointer;
   color:#fff;
+  font-weight: 700;
+  letter-spacing: .2px;
+
   background: linear-gradient(90deg, #ff6bd6, #7c6bff, #39d5ff);
+  box-shadow:
+    0 14px 24px rgba(124,107,255,.18),
+    0 10px 18px rgba(255,107,214,.10);
+  transition: transform .12s ease, filter .2s ease, box-shadow .2s ease;
+}
+.tool-btn:hover{
+  filter: brightness(1.05) saturate(1.05);
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 32px rgba(124,107,255,.22),
+    0 12px 22px rgba(57,213,255,.14);
+}
+.tool-btn:active{
+  transform: translateY(0) scale(.99);
 }
 
 .inline-row{
@@ -122,12 +167,60 @@
   color: rgba(107,111,134,.95);
 }
 
+/* 编辑页输入框统一 */
+.editor-panel input[type="text"],
+.editor-panel input[type="file"]{
+  width:100%;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(140,160,210,.28);
+  background: rgba(255,255,255,.78);
+  color: rgba(43,45,58,.92);
+  font-size: 14px;
+  outline:none;
+  transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+}
+
+.editor-panel input[type="text"]::placeholder{
+  color: rgba(107,111,134,.65);
+}
+
+.editor-panel input[type="text"]:focus,
+.editor-panel input[type="file"]:focus{
+  border-color: rgba(124,107,255,.55);
+  box-shadow:
+    0 0 0 4px rgba(124,107,255,.16),
+    0 10px 26px rgba(57,213,255,.10);
+  transform: translateY(-1px);
+}
+
+/* 文件选择按钮（WebKit） */
+.editor-panel input[type="file"]::-webkit-file-upload-button{
+  border: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-right: 10px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(90deg, #7c6bff, #39d5ff);
+  box-shadow: 0 10px 18px rgba(57,213,255,.18);
+  transition: transform .15s ease, filter .2s ease;
+}
+.editor-panel input[type="file"]::-webkit-file-upload-button:hover{
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
 .upload-msg{
   margin-top: 10px;
   font-size: 13px;
   color: rgba(43,45,58,.95);
   line-height: 1.5;
   word-break: break-word;
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.55);
+  border: 1px solid rgba(140,160,210,.18);
 }
 
 .editor-stage{
@@ -158,6 +251,7 @@
 #cutoutWrap{
   align-items:stretch;
 }
+
 #cutoutCanvas{
   width:100%;
   height:100%;
@@ -186,20 +280,24 @@
   position:absolute;
   right: 14px;
   bottom: 14px;
-  width: 220px;
-  background: rgba(255,255,255,.85);
+  width: 240px;
+  background: rgba(255,255,255,.88);
   border: 1px solid rgba(140,160,210,.22);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 10px;
+  box-shadow: 0 18px 40px rgba(35, 50, 90, .12);
+  backdrop-filter: blur(10px);
 }
+
 .export-title{
   font-size: 12px;
   color: rgba(107,111,134,.9);
   margin-bottom: 8px;
 }
+
 #exportImg{
   width:100%;
-  border-radius: 12px;
+  border-radius: 14px;
   display:block;
 }
 
