@@ -1,11 +1,21 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 import requests
 import os
 import json
+import random
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 app = Flask(__name__,
             static_folder=os.path.join(os.path.dirname(__file__), '../static'),
             template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
+
+# ===== Custom AI (模式2：解锁后使用) =====
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev_secret_change_me')
+serializer = URLSafeTimedSerializer(app.secret_key)
+CUSTOM_AI_ENABLED = os.getenv('CUSTOM_AI_ENABLED', '0').strip() == '1'
+CUSTOM_AI_PASSWORD = os.getenv('CUSTOM_AI_PASSWORD', '').strip()
+
+
 
 # PicGo API 配置
 PICGO_API_URL = "https://www.picgo.net/api/1/upload"
@@ -36,9 +46,7 @@ def home():
     return render_template("index.html", github_user=GITHUB_USER, gist_id=GIST_ID)
 @app.route("/editor")
 def editor():
-    return render_template("editor.html")            
-
-@app.route("/api/upload", methods=["POST"])
+    return render_template("editor.html", custom_ai_enabled=CUSTOM_AI_ENABLED)@app.route("/api/upload", methods=["POST"])
 def upload_image():
     try:
         # ✅ 兼容单图 & 多图：前端字段名仍然用 source
@@ -323,6 +331,154 @@ def update_gist(name, url):
         return {"success": False, "error": "无法更新 Gist"}
 
     return {"success": True, "name": name}
+
+
+
+# ===================== AI 抠图（默认双通道负载 + 自定义模式2） =====================
+
+def call_clipdrop_remove_bg(image):
+    api_key = os.getenv("CLIPDROP_API_KEY", "").strip()
+    if not api_key:
+        raise Exception("CLIPDROP_API_KEY 未配置")
+
+    url = "https://clipdrop-api.co/remove-background/v1"
+    headers = {"x-api-key": api_key}
+    files = {"image_file": (image.filename, image.stream, image.mimetype)}
+    r = requests.post(url, headers=headers, files=files, timeout=60)
+    if r.status_code != 200:
+        raise Exception(f"Clipdrop 抠图失败: HTTP {r.status_code} {r.text[:200]}")
+    return r.content  # png bytes
+
+
+def call_removebg_remove_bg(image):
+    api_key = os.getenv("REMOVEBG_API_KEY", "").strip()
+    if not api_key:
+        raise Exception("REMOVEBG_API_KEY 未配置")
+
+    url = "https://api.remove.bg/v1.0/removebg"
+    headers = {"X-Api-Key": api_key}
+    files = {"image_file": (image.filename, image.stream, image.mimetype)}
+    data = {"size": "auto"}
+    r = requests.post(url, headers=headers, files=files, data=data, timeout=60)
+    if r.status_code != 200:
+        raise Exception(f"remove.bg 抠图失败: HTTP {r.status_code} {r.text[:200]}")
+    return r.content  # png bytes
+
+
+def call_custom_remove_bg(image):
+    """
+    自定义AI转发（模式2：必须先解锁）：
+    约定：CUSTOM_AI_URL 返回透明 PNG（二进制，Content-Type: image/png）。
+    如果你的自定义服务返回 JSON(url)，需要改这里的解析逻辑。
+    """
+    custom_url = os.getenv("CUSTOM_AI_URL", "").strip()
+    if not custom_url:
+        raise Exception("CUSTOM_AI_URL 未配置")
+
+    file_field = os.getenv("CUSTOM_AI_FILE_FIELD", "image").strip() or "image"
+    auth_header = os.getenv("CUSTOM_AI_AUTH_HEADER", "Authorization").strip() or "Authorization"
+    auth_prefix = os.getenv("CUSTOM_AI_AUTH_PREFIX", "").strip()
+    api_key = os.getenv("CUSTOM_AI_API_KEY", "").strip()
+
+    headers = {}
+    if api_key:
+        headers[auth_header] = f"{auth_prefix}{api_key}"
+
+    files = {file_field: (image.filename, image.stream, image.mimetype)}
+    r = requests.post(custom_url, headers=headers, files=files, timeout=90)
+    if r.status_code != 200:
+        raise Exception(f"自定义AI抠图失败: HTTP {r.status_code} {r.text[:200]}")
+    return r.content
+
+
+@app.route("/api/ai_cutout", methods=["POST"])
+def api_ai_cutout_default():
+    """
+    默认AI抠图：Clipdrop + remove.bg 负载均衡（随机优先）+ 失败自动降级
+    """
+    try:
+        image = request.files.get("image")
+        if not image:
+            return jsonify({"error": "缺少图片字段 image"}), 400
+
+        candidates = []
+        if os.getenv("CLIPDROP_API_KEY", "").strip():
+            candidates.append(("clipdrop", call_clipdrop_remove_bg))
+        if os.getenv("REMOVEBG_API_KEY", "").strip():
+            candidates.append(("removebg", call_removebg_remove_bg))
+
+        if not candidates:
+            return jsonify({"error": "默认AI未配置：请设置 CLIPDROP_API_KEY 或 REMOVEBG_API_KEY"}), 500
+
+        random.shuffle(candidates)
+
+        last_err = None
+        for name, fn in candidates:
+            try:
+                png_bytes = fn(image)
+                return Response(png_bytes, mimetype="image/png")
+            except Exception as e:
+                last_err = f"{name}: {str(e)}"
+                continue
+
+        return jsonify({"error": "默认AI抠图失败", "details": last_err}), 500
+
+    except Exception as e:
+        return jsonify({"error": "默认AI抠图失败", "details": str(e)}), 500
+
+
+@app.route("/api/ai/custom/auth", methods=["POST"])
+def api_custom_ai_auth():
+    """模式2：输入密码 -> 下发 HttpOnly Cookie，解锁自定义AI抠图"""
+    if not CUSTOM_AI_ENABLED:
+        return jsonify({"error": "自定义AI未启用（CUSTOM_AI_ENABLED!=1）"}), 403
+
+    if not CUSTOM_AI_PASSWORD:
+        return jsonify({"error": "CUSTOM_AI_PASSWORD 未配置"}), 500
+
+    data = request.get_json(silent=True) or {}
+    pwd = (data.get("password") or "").strip()
+
+    if pwd != CUSTOM_AI_PASSWORD:
+        return jsonify({"error": "密码错误"}), 403
+
+    token = serializer.dumps({"ok": 1})
+    resp = jsonify({"success": True})
+    # 1天有效；HttpOnly 防止 JS 读取；secure=True 适配 https
+    resp.set_cookie("custom_ai_auth", token, max_age=86400, httponly=True, samesite="Lax", secure=True)
+    return resp
+
+
+def _check_custom_ai_cookie():
+    raw = request.cookies.get("custom_ai_auth", "")
+    if not raw:
+        return False
+    try:
+        serializer.loads(raw, max_age=86400)
+        return True
+    except (BadSignature, SignatureExpired):
+        return False
+
+
+@app.route("/api/ai_cutout_custom", methods=["POST"])
+def api_ai_cutout_custom():
+    """自定义AI抠图：必须先 /api/ai/custom/auth 解锁"""
+    try:
+        if not CUSTOM_AI_ENABLED:
+            return jsonify({"error": "自定义AI未启用（CUSTOM_AI_ENABLED!=1）"}), 403
+
+        if not _check_custom_ai_cookie():
+            return jsonify({"error": "未解锁自定义AI：请先输入密码解锁"}), 403
+
+        image = request.files.get("image")
+        if not image:
+            return jsonify({"error": "缺少图片字段 image"}), 400
+
+        png_bytes = call_custom_remove_bg(image)
+        return Response(png_bytes, mimetype="image/png")
+
+    except Exception as e:
+        return jsonify({"error": "自定义AI抠图失败", "details": str(e)}), 500
 
 
 if __name__ == "__main__":
