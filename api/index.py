@@ -46,7 +46,10 @@ def home():
     return render_template("index.html", github_user=GITHUB_USER, gist_id=GIST_ID)
 @app.route("/editor")
 def editor():
-    return render_template("editor.html", custom_ai_enabled=CUSTOM_AI_ENABLED)@app.route("/api/upload", methods=["POST"])
+    return render_template("editor.html", custom_ai_enabled=CUSTOM_AI_ENABLED)
+
+
+@app.route("/api/upload", methods=["POST"])
 def upload_image():
     try:
         # ✅ 兼容单图 & 多图：前端字段名仍然用 source
