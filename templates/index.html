@@ -31,10 +31,11 @@
       <input type="file" id="image" accept="image/*" multiple>
     </div>
 
-    <div class="btn-row">
-      <button class="upload-btn" onclick="uploadSingle()">单张上传</button>
-      <button class="upload-btn" onclick="uploadBatch()">批量上传</button>
-    </div>
+   <div class="btn-row">
+  <a class="upload-btn link-btn" href="/editor" target="_blank">🧩 图标编辑</a>
+  <button class="upload-btn" onclick="uploadSingle()">单张上传</button>
+  <button class="upload-btn" onclick="uploadBatch()">批量上传</button>
+   </div>
 
     <!-- 进度条（批量上传时显示） -->
     <div id="progressWrap" class="progress-wrap" style="display:none;">
@@ -72,12 +73,6 @@
       上传后如 JSON 未更新，请稍等或清缓存
     </p>
   </div>
-
-  <p class="centered-link">
-  <a href="/editor" target="_blank">
-    🧩 图标在线编辑
-  </a>
-</p>
 
   <script src="{{ url_for('static', filename='js/script.js') }}?v=stable_20260102"></script>
 </body>
