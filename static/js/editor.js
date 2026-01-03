@@ -242,13 +242,12 @@ async function uploadBlobToLibrary(blob, nameBase, suffix) {
   const uploadMsg = el("uploadMsg");
   uploadMsg.textContent = "正在上传到图标库...";
 
-  // 组装一个 File，让后端拿到 filename/mimetype 都正常
   const filename = `${nameBase}${suffix}.png`;
   const file = new File([blob], filename, { type: "image/png" });
 
   const fd = new FormData();
-  fd.append("source", file);       // ✅ 你的后端字段名是 source
-  fd.append("name", nameBase);     // ✅ 你的后端用 name 写入 gist（并做唯一化）
+  fd.append("source", file);       // ✅ 后端字段名：source
+  fd.append("name", nameBase);     // ✅ 写入 gist 的 name（后端做唯一化）
 
   try {
     const res = await fetch("/api/upload", { method: "POST", body: fd });
@@ -357,6 +356,65 @@ function resetAll() {
 
   showOnly("empty");
 }
+
+/* ========== ✅ 编辑页随机背景 + 点击切换下一张 ========== */
+
+/**
+ * 说明：
+ * - 只在编辑页生效（body 有 editor-body）
+ * - 点击“空白背景区域”切换下一张
+ * - 不会影响你在面板/画布上的操作（点到 panel 或 stage 不会切）
+ */
+(function () {
+  const randomImageURL = "https://www.loliapi.com/acg/";
+  const body = document.body;
+
+  if (!body.classList.contains("editor-body")) return;
+
+  function withCacheBuster(url) {
+    // 给随机图片 URL 加时间戳，强制换图/避免缓存
+    const join = url.includes("?") ? "&" : "?";
+    return `${url}${join}t=${Date.now()}`;
+  }
+
+  function applyRandomBg() {
+    const bgUrl = withCacheBuster(randomImageURL);
+    body.style.backgroundImage = `
+      url(${bgUrl}),
+      radial-gradient(900px 600px at 12% 18%, rgba(255,107,214,.25), transparent 60%),
+      radial-gradient(800px 520px at 85% 20%, rgba(57,213,255,.20), transparent 55%),
+      radial-gradient(900px 650px at 55% 92%, rgba(124,107,255,.18), transparent 60%),
+      linear-gradient(135deg, #ffe9f6, #e9f1ff, #eafff7)
+    `;
+    body.style.backgroundSize = "cover";
+    body.style.backgroundPosition = "center";
+    body.style.backgroundRepeat = "no-repeat";
+    body.style.backgroundAttachment = "fixed";
+  }
+
+  // 首次加载背景
+  applyRandomBg();
+
+  // 点击空白背景切换：只要不是点在 topbar / 面板 / 工作区 内部就切换
+  document.addEventListener("click", (e) => {
+    const inTopbar = e.target.closest(".editor-topbar");
+    const inLayout = e.target.closest(".editor-layout");
+    const inPanel = e.target.closest(".editor-panel");
+    const inStage = e.target.closest(".editor-stage");
+
+    // 只允许点“真正的背景空白处”
+    if (inTopbar || inLayout || inPanel || inStage) return;
+
+    applyRandomBg();
+  }, { passive: true });
+
+  // 额外加一个“快捷方式”：Shift + 点击任意位置也切换（防止页面没有空白背景）
+  document.addEventListener("click", (e) => {
+    if (!e.shiftKey) return;
+    applyRandomBg();
+  }, { passive: true });
+
+})();
 
 /* ========== 事件绑定 ========== */
 
