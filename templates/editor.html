@@ -3,26 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>图标在线编辑———Zzzの图标库</title>
 
-  <!-- ✅ 统一使用上传页的网页图标 -->
   <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}?v=editor_20260104">
 
-  <!-- 编辑页样式 -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}?v=editor_20260103">
-
-  <!-- ✅ Cropper 必须的 CSS（没有它裁剪框会“不正常/不好用”） -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+
+  <!-- ✅ 给编辑页加“二次元随机背景”所需的少量样式（不依赖你现有 editor.css） -->
+  <style>
+    .ani-bg{
+      position:fixed; inset:0;
+      background-size:cover;
+      background-position:center;
+      filter:saturate(1.2) contrast(1.05);
+      transform:scale(1.02);
+      z-index:-3;
+    }
+    .ani-overlay{
+      position:fixed; inset:0;
+      background:
+        radial-gradient(1000px 700px at 20% 10%, rgba(255,107,214,.25), transparent 60%),
+        radial-gradient(900px 650px at 85% 20%, rgba(101,247,255,.20), transparent 55%),
+        radial-gradient(1000px 800px at 50% 90%, rgba(156,123,255,.20), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.55));
+      backdrop-filter: blur(2px);
+      z-index:-2;
+    }
+  </style>
 </head>
 
 <body class="editor-body">
+  <!-- ✅ 背景层 -->
+  <div class="ani-bg" id="aniBg"></div>
+  <div class="ani-overlay"></div>
+
   <div class="editor-topbar">
     <div class="topbar-left">
       <a class="topbar-back" href="/">← 返回上传页</a>
       <span class="topbar-title">图标在线编辑（裁剪 + 手动抠图 + 一键上传）</span>
     </div>
     <div class="topbar-right">
+      <!-- ✅ 管理入口 -->
+      <a class="mini-btn" href="/manage" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+        管理后台
+      </a>
       <button class="mini-btn" id="btnReset">重置</button>
     </div>
   </div>
@@ -48,7 +73,6 @@
         </div>
       </div>
 
-      <!-- ✅ 裁剪增强：更像 PS 的操作 -->
       <div class="panel-block">
         <div class="panel-title">3) 裁剪工具（像 PS）</div>
         <div class="btn-col">
@@ -83,33 +107,32 @@
         <div class="panel-hint">圆形导出会自动做透明圆形遮罩</div>
       </div>
 
-      
-<!-- ✅ AI 抠图（默认双通道 + 自定义模式2） -->
-<div class="panel-block">
-  <div class="panel-title">6) AI 抠图（去背景透明）</div>
-  <div class="btn-col">
-    <button class="tool-btn" id="btnAICutoutDefault">默认AI抠图（Clipdrop + remove.bg 自动均衡）</button>
+      <!-- ✅ AI 抠图（默认双通道 + 自定义模式2） -->
+      <div class="panel-block">
+        <div class="panel-title">6) AI 抠图（去背景透明）</div>
+        <div class="btn-col">
+          <button class="tool-btn" id="btnAICutoutDefault">默认AI抠图（Clipdrop + remove.bg 自动均衡）</button>
 
-    {% if custom_ai_enabled %}
-    <button class="tool-btn" id="btnUnlockCustomAI">解锁自定义AI（需要密码）</button>
-    <button class="tool-btn" id="btnAICutoutCustom" style="display:none;">自定义AI抠图（已解锁）</button>
-    {% endif %}
-  </div>
-  <div id="aiMsg" class="upload-msg"></div>
+          {% if custom_ai_enabled %}
+          <button class="tool-btn" id="btnUnlockCustomAI">解锁自定义AI（需要密码）</button>
+          <button class="tool-btn" id="btnAICutoutCustom" style="display:none;">自定义AI抠图（已解锁）</button>
+          {% endif %}
+        </div>
+        <div id="aiMsg" class="upload-msg"></div>
 
-  {% if custom_ai_enabled %}
-  <div class="panel-hint">
-    自定义AI已启用：需要在 Vercel 环境变量配置 CUSTOM_AI_URL / CUSTOM_AI_FILE_FIELD（可选：CUSTOM_AI_API_KEY）。<br/>
-    提示：解锁密码为 CUSTOM_AI_PASSWORD。
-  </div>
-  {% else %}
-  <div class="panel-hint">
-    你当前仅启用默认AI（如需自定义AI：设置 CUSTOM_AI_ENABLED=1）。
-  </div>
-  {% endif %}
-</div>
+        {% if custom_ai_enabled %}
+        <div class="panel-hint">
+          自定义AI已启用：需要在 Vercel 环境变量配置 CUSTOM_AI_URL / CUSTOM_AI_FILE_FIELD（可选：CUSTOM_AI_API_KEY）。<br/>
+          提示：解锁密码为 CUSTOM_AI_PASSWORD。
+        </div>
+        {% else %}
+        <div class="panel-hint">
+          你当前仅启用默认AI（如需自定义AI：设置 CUSTOM_AI_ENABLED=1）。
+        </div>
+        {% endif %}
+      </div>
 
-<!-- ✅ 一键上传到图标库 -->
+      <!-- ✅ 一键上传到图标库 -->
       <div class="panel-block">
         <div class="panel-title">7) 一键上传到图标库</div>
 
@@ -143,23 +166,19 @@
 
     <!-- 中央工作区 -->
     <main class="editor-stage">
-      <!-- 裁剪用 -->
       <div id="cropWrap" class="stage-box" style="display:none;">
         <img id="cropImage" alt="crop" />
       </div>
 
-      <!-- 抠图用 -->
       <div id="cutoutWrap" class="stage-box" style="display:none;">
         <canvas id="cutoutCanvas"></canvas>
       </div>
 
-      <!-- 空态 -->
       <div id="emptyWrap" class="stage-empty">
         <div class="empty-title">请先导入一张图片</div>
         <div class="empty-sub">支持：裁剪（1:1）/ 手动抠图（橡皮擦）/ 一键上传</div>
       </div>
 
-      <!-- 导出预览 -->
       <div id="exportWrap" class="export-wrap" style="display:none;">
         <div class="export-title">导出预览（右键/长按保存）</div>
         <img id="exportImg" alt="export" />
@@ -167,11 +186,25 @@
     </main>
   </div>
 
-  <!-- 依赖库 -->
   <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
-
-  <!-- 编辑页逻辑 -->
   <script src="{{ url_for('static', filename='js/editor.js') }}?v=editor_upload_ai_1"></script>
+
+  <!-- ✅ 随机背景逻辑 -->
+  <script>
+    const BG_API = "{{ bg_api }}";
+    const bgEl = document.getElementById("aniBg");
+
+    function refreshBg(){
+      const u = BG_API.includes("?") ? (BG_API + "&t=" + Date.now()) : (BG_API + "?t=" + Date.now());
+      bgEl.style.backgroundImage = `url("${u}")`;
+    }
+
+    refreshBg();
+    // 点击背景换图
+    bgEl.addEventListener("click", refreshBg);
+    // Shift+点击任意位置换图（不影响你的工具区点击）
+    window.addEventListener("click", (e)=>{ if(e.shiftKey) refreshBg(); });
+  </script>
 </body>
 </html>
