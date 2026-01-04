@@ -17,7 +17,7 @@ serializer = URLSafeTimedSerializer(app.secret_key)
 CUSTOM_AI_ENABLED = os.getenv('CUSTOM_AI_ENABLED', '0').strip() == '1'
 CUSTOM_AI_PASSWORD = os.getenv('CUSTOM_AI_PASSWORD', '').strip()
 
-# ===== Admin 管理后台（独立页面 + 密码登录）=====
+# ===== Admin 管理后台（独立 manage 页 + 密码登录）=====
 ADMIN_ENABLED = os.getenv("ADMIN_ENABLED", "0").strip() == "1"
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
 ADMIN_COOKIE_MAX_AGE = int((os.getenv("ADMIN_COOKIE_MAX_AGE", "86400") or "86400").strip())
@@ -30,7 +30,7 @@ def _set_admin_cookie(resp):
         max_age=ADMIN_COOKIE_MAX_AGE,
         httponly=True,
         samesite="Lax",
-        secure=True,
+        secure=True,  # 线上 https
     )
     return resp
 
@@ -54,175 +54,8 @@ def require_admin(fn):
         return fn(*args, **kwargs)
     return wrapper
 
-# 独立管理页面：不需要新增模板文件，直接内联 HTML
-ADMIN_PAGE_HTML = r"""<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>图片管理</title>
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;max-width:1200px;margin:24px auto;padding:0 12px;}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-    input{padding:8px;}
-    button{padding:8px 12px;cursor:pointer;}
-    table{width:100%;border-collapse:collapse;margin-top:12px;}
-    th,td{border:1px solid #e5e5e5;padding:8px;vertical-align:top;word-break:break-all;}
-    .muted{opacity:.7;font-size:12px;}
-    .ok{color:green;}
-    .bad{color:#c00;}
-    .pill{display:inline-block;padding:2px 6px;border:1px solid #ddd;border-radius:10px;font-size:12px;}
-  </style>
-</head>
-<body>
-  <h2>图片管理</h2>
-
-  <div id="loginBox" class="row">
-    <input id="pwd" type="password" placeholder="管理密码"/>
-    <button onclick="login()">登录</button>
-    <span id="loginMsg" class="muted"></span>
-  </div>
-
-  <div id="panel" style="display:none;">
-    <div class="row">
-      <input id="q" placeholder="搜索（可选，按 PICUI）"/>
-      <button onclick="loadImages()">刷新</button>
-      <button onclick="bulkDelete()">批量删除</button>
-      <button onclick="logout()">退出</button>
-      <span class="muted">icons.json raw：<a id="rawJson" target="_blank"></a></span>
-      <span class="muted pill" id="gistInfo"></span>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th style="width:52px;">选</th>
-          <th>预览</th>
-          <th>URL</th>
-          <th>PICUI Key</th>
-          <th>Json 对应</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-
-    <div class="muted" style="margin-top:8px;line-height:1.6;">
-      规则：删除会<strong>先删 PICUI</strong>；仅当某张图<strong>PICUI 删除成功</strong>，才会从 icons.json 移除对应条目（保证一致性）。<br/>
-      批量删除时对 icons.json 的更新会合并为<strong>一次</strong>（或极少次数），降低 Gist 流控风险。
-    </div>
-  </div>
-
-<script>
-let currentItems = [];
-
-async function login(){
-  const password = document.getElementById('pwd').value;
-  const r = await fetch('/api/admin/login', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({password})
-  });
-  const j = await r.json().catch(()=>({ok:false,message:'bad json'}));
-  document.getElementById('loginMsg').textContent = j.ok ? '' : (j.message || '登录失败');
-  if(!j.ok) return;
-
-  document.getElementById('loginBox').style.display = 'none';
-  document.getElementById('panel').style.display = 'block';
-  await loadImages();
-}
-
-async function logout(){
-  await fetch('/api/admin/logout', {method:'POST'});
-  location.reload();
-}
-
-async function loadImages(){
-  const q = document.getElementById('q').value || '';
-  const r = await fetch('/api/admin/images?q=' + encodeURIComponent(q));
-  if(r.status===401){ alert('未登录'); return; }
-  const j = await r.json();
-  if(!j.ok){ alert(j.message || '加载失败'); return; }
-  currentItems = j.items || [];
-
-  const raw = j.raw_icons_json || ((currentItems[0] && currentItems[0].raw_icons_json) || '');
-  const rawA = document.getElementById('rawJson');
-  rawA.textContent = raw || '';
-  rawA.href = raw || '#';
-
-  const gistInfo = document.getElementById('gistInfo');
-  gistInfo.textContent = j.gist_stats ? `Gist icons: ${j.gist_stats.count}` : '';
-
-  const rows = document.getElementById('rows');
-  rows.innerHTML = '';
-
-  currentItems.forEach((it, idx)=>{
-    const tr = document.createElement('tr');
-    const inGist = it.in_gist;
-    tr.innerHTML = `
-      <td><input type="checkbox" data-idx="${idx}"/></td>
-      <td>${it.url ? `<img src="${it.url}" style="max-width:120px;max-height:90px;object-fit:contain"/>` : ''}</td>
-      <td>${it.url ? `<a href="${it.url}" target="_blank">${it.url}</a>` : ''}</td>
-      <td>${it.key || ''}</td>
-      <td>
-        ${inGist
-          ? `<span class="ok">已在 icons.json</span><div class="muted">name: ${it.icon_name||''}</div>`
-          : `<span class="bad">未收录</span>`
-        }
-        ${raw ? `<div class="muted"><a href="${raw}" target="_blank">打开 icons.json</a></div>` : ''}
-      </td>
-      <td><button onclick="deleteOne(${idx})">删除</button></td>
-    `;
-    rows.appendChild(tr);
-  });
-}
-
-function getSelected(){
-  const cbs = Array.from(document.querySelectorAll('input[type=checkbox][data-idx]'));
-  return cbs.filter(x=>x.checked).map(x=>currentItems[Number(x.dataset.idx)]);
-}
-
-async function deleteOne(idx){
-  const it = currentItems[idx];
-  if(!it) return;
-  if(!confirm('确认删除这张？（先删 PICUI；仅 PICUI 删除成功才会从 icons.json 移除）')) return;
-  await doDelete([it]);
-}
-
-async function bulkDelete(){
-  const selected = getSelected();
-  if(!selected.length){
-    alert('请先勾选要删除的图片');
-    return;
-  }
-  if(!confirm(`确认批量删除 ${selected.length} 张？（先逐个删 PICUI；仅成功的才会从 icons.json 移除；Gist 更新将合并）`)) return;
-  await doDelete(selected);
-}
-
-async function doDelete(items){
-  const payload = {items: items.map(x=>({key:x.key, url:x.url}))};
-  const r = await fetch('/api/admin/delete', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify(payload)
-  });
-  const j = await r.json();
-  if(!j.ok){ alert(j.message || '删除失败'); return; }
-
-  const failed = (j.picui || []).filter(x=>!x.ok);
-  const gist = j.gist || {};
-  let msg = '';
-  if(failed.length){
-    msg += `PICUI 删除失败 ${failed.length} 个（这些不会从 icons.json 移除）：\n` + failed.map(x=>`${x.key}: ${x.error}`).join('\n') + '\n\n';
-  }
-  if(gist && typeof gist.removed === 'number'){
-    msg += `icons.json 已移除 ${gist.removed} 条（before=${gist.before}, after=${gist.after}）`;
-  }
-  if(msg) alert(msg);
-
-  await loadImages();
-}
-</script>
-</body>
-</html>"""
+# ===== 随机二次元背景 API（管理页/编辑页统一用）=====
+RANDOM_BG_API = os.getenv("RANDOM_BG_API", "https://api.btstu.cn/sjbz/?lx=dongman").strip()
 
 # PicGo API 配置
 PICGO_API_URL = "https://www.picgo.net/api/1/upload"
@@ -271,9 +104,7 @@ def update_gist_data(content):
     return response.json()
 
 def _update_gist_with_retry(content, max_retry=3):
-    """
-    对 Gist PATCH 做简单指数退避重试，缓解二级流控/偶发网络失败。
-    """
+    """对 Gist PATCH 做指数退避重试，缓解偶发失败/流控"""
     last_err = None
     for i in range(max_retry):
         try:
@@ -307,7 +138,7 @@ def get_unique_name(name, json_content):
 
 def batch_append_to_gist(new_items):
     """
-    核心辅助函数：一次性将 new_items 列表追加到 Gist
+    一次性将 new_items 列表追加到 Gist
     new_items: [{"name": "raw_name", "url": "http..."}]
     Return: 更新后的 items (包含去重后的最终名称)
     """
@@ -332,8 +163,7 @@ def batch_append_to_gist(new_items):
 def gist_remove_icons_by_urls(urls_to_remove: set):
     """
     从 icons.json 中批量移除 url 命中的条目，并尽量合并为一次 PATCH。
-    重要：调用方必须保证 urls_to_remove 只包含“PICUI 删除成功”的 URL，
-         从而满足你要的“一致性：删除失败不影响 Gist”。
+    一致性保证：urls_to_remove 必须只包含“PICUI 删除成功”的 URL
     """
     urls_to_remove = set([u for u in (urls_to_remove or set()) if u])
     content = _read_icons_json_from_gist()
@@ -442,15 +272,18 @@ def home():
 
 @app.route("/editor")
 def editor():
-    return render_template("editor.html", custom_ai_enabled=CUSTOM_AI_ENABLED)
+    # 给编辑页传随机背景 API，统一二次元风格
+    return render_template("editor.html", custom_ai_enabled=CUSTOM_AI_ENABLED, bg_api=RANDOM_BG_API)
 
-# ===== Admin 路由 =====
+# ===== 独立 manage 页面 =====
 
-@app.get("/admin/manage")
-def admin_manage_page():
+@app.get("/manage")
+def manage_page():
     if not ADMIN_ENABLED:
         return "Admin disabled", 403
-    return Response(ADMIN_PAGE_HTML, mimetype="text/html")
+    return render_template("manage.html", bg_api=RANDOM_BG_API, gist_raw=gist_raw_icons_url())
+
+# ===== Admin API =====
 
 @app.post("/api/admin/login")
 def api_admin_login():
@@ -478,17 +311,14 @@ def api_admin_images():
     page = int(request.args.get("page", "1"))
     q = (request.args.get("q") or "").strip() or None
 
-    # 1) PICUI 图片列表
     pj = picui_list_images(page=page, q=q)
 
-    # 2) Gist icons.json 建立 url->icon 映射，用于显示“对应 Json 条目”
     content = _read_icons_json_from_gist()
     icons = content.get("icons", []) or []
     by_url = {it.get("url"): it for it in icons if it.get("url")}
 
     raw_url = gist_raw_icons_url()
 
-    # 3) 兼容 PICUI 返回结构（常见是 data.data；也可能 data 是数组）
     data_list = (pj.get("data", {}) or {}).get("data")
     if data_list is None:
         data_list = pj.get("data") or []
@@ -502,10 +332,8 @@ def api_admin_images():
         items.append({
             "key": key,
             "url": url,
-            "name": img.get("name") or (icon.get("name") if icon else ""),
             "in_gist": bool(icon),
             "icon_name": (icon.get("name") if icon else None),
-            "raw_icons_json": raw_url,
         })
 
     return jsonify({
@@ -520,13 +348,9 @@ def api_admin_images():
 @require_admin
 def api_admin_delete():
     """
-    支持单删/批量删：
-      body: { "items": [{"key":"...","url":"..."}, ...] }
-
-    一致性保证（你要求的）：
-      - 先删 PICUI
-      - 仅对 PICUI 删除成功的 url 才会从 icons.json 移除
-      - 最后对成功集合合并为一次 Gist PATCH（降低流控）
+    一致性保证：
+    - 先删 PICUI
+    - 只有 PICUI 删除成功的，才从 icons.json 移除
     """
     data = request.get_json(silent=True) or {}
     items = data.get("items") or []
@@ -547,7 +371,6 @@ def api_admin_delete():
         try:
             picui_delete_by_key(key)
             picui_results.append({"ok": True, "key": key, "url": url})
-            # 关键：只有 PICUI 删除成功才收集 url
             if url:
                 urls_to_remove.add(url)
         except Exception as e:
@@ -555,25 +378,15 @@ def api_admin_delete():
 
     gist_summary = {"before": None, "after": None, "removed": 0}
     if urls_to_remove:
-        try:
-            gist_summary = gist_remove_icons_by_urls(urls_to_remove)
-        except Exception as e:
-            # 如果 Gist 更新失败：不影响 PICUI 删除结果，但会告知前端（这时需要你手动修复 gist）
-            return jsonify({
-                "ok": False,
-                "message": "PICUI 删除已执行，但 Gist 同步失败（请稍后重试或手动修复 icons.json）",
-                "picui": picui_results,
-                "gist_error": str(e)
-            }), 502
+        gist_summary = gist_remove_icons_by_urls(urls_to_remove)
 
     return jsonify({"ok": True, "picui": picui_results, "gist": gist_summary})
 
-# ===== 上传接口（保持你的逻辑不变，只调用 batch_append_to_gist）=====
+# ===== 上传接口（保持你的逻辑不变）=====
 
 @app.route("/api/upload", methods=["POST"])
 def upload_image():
     """
-    修改后的上传接口：
     1. 单图上传：立即更新 Gist。
     2. 批量上传：每积攒 10 张图的链接，更新一次 Gist（流控）。
     3. 剩余不足 10 张：最后统一更新。
@@ -586,10 +399,9 @@ def upload_image():
         raw_name = (request.form.get("name") or "").strip()
         upload_service = os.getenv("UPLOAD_SERVICE", "PICGO").upper()
 
-        final_results = []   # 最终返回给前端的所有结果
-        pending_batch = []   # 待写入 Gist 的缓冲区
-
-        BATCH_SIZE = 10      # 流控阈值：每10个更新一次
+        final_results = []
+        pending_batch = []
+        BATCH_SIZE = 10
 
         for image in images:
             if not image or not getattr(image, "filename", ""):
@@ -598,7 +410,6 @@ def upload_image():
             auto_name = os.path.splitext(image.filename)[0]
             name = raw_name or auto_name
 
-            # --- 1. 上传图片到图床 ---
             upload_err = None
             image_url = None
 
@@ -615,7 +426,6 @@ def upload_image():
             except Exception as e:
                 upload_err = str(e)
 
-            # --- 2. 处理上传结果 ---
             if not image_url:
                 final_results.append({
                     "ok": False,
@@ -625,7 +435,6 @@ def upload_image():
             else:
                 pending_batch.append({"name": name, "url": image_url})
 
-            # --- 3. 流控检查：达到阈值就同步到 Gist ---
             if len(pending_batch) >= BATCH_SIZE:
                 try:
                     saved_items = batch_append_to_gist(pending_batch)
@@ -642,7 +451,6 @@ def upload_image():
                         })
                     pending_batch = []
 
-        # --- 4. 处理剩余不足阈值的图片 ---
         if pending_batch:
             try:
                 saved_items = batch_append_to_gist(pending_batch)
@@ -660,7 +468,6 @@ def upload_image():
         if not final_results:
             return jsonify({"error": "没有处理任何文件"}), 400
 
-        # 兼容单文件上传的旧响应格式
         if len(images) == 1 and len(final_results) == 1:
             r = final_results[0]
             if r.get("ok"):
@@ -675,7 +482,6 @@ def upload_image():
 
 @app.route("/api/finalize_batch", methods=["POST"])
 def api_finalize_batch():
-    """保留接口以防万一，但现在的逻辑已经在 upload 中自动 finalize 了"""
     return jsonify({"success": True, "message": "Batch is now handled automatically in upload"}), 200
 
 # ===================== AI 抠图相关 (保持不变) =====================
