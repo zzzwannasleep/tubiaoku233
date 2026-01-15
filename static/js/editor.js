@@ -485,7 +485,7 @@ function getUploadName() {
   return manual || originalFilenameBase || "icon";
 }
 
-async function uploadBlobToLibrary(blob, nameBase, suffix) {
+async function uploadBlobToLibrary(blob, nameBase, suffix, githubFolder) {
   const uploadMsg = el("uploadMsg");
   uploadMsg.textContent = "正在上传到图标库...";
 
@@ -495,6 +495,7 @@ async function uploadBlobToLibrary(blob, nameBase, suffix) {
   const fd = new FormData();
   fd.append("source", file);
   fd.append("name", nameBase);
+  if (githubFolder) fd.append("github_folder", githubFolder);
 
   try {
     const res = await fetch("/api/upload", { method: "POST", body: fd });
@@ -514,14 +515,14 @@ async function uploadSquareToLibrary() {
   const b = await getSquareBlobFromCurrentMode();
   if (!b) return alert("请先导入图片，并进行裁剪/抠图后再上传");
   const name = getUploadName();
-  await uploadBlobToLibrary(b, name, "");
+  await uploadBlobToLibrary(b, name, "", "square");
 }
 
 async function uploadCircleToLibrary() {
   const b = await getCircleBlobFromCurrentMode();
   if (!b) return alert("请先导入图片，并进行裁剪/抠图后再上传");
   const name = getUploadName();
-  await uploadBlobToLibrary(b, name, "_circle");
+  await uploadBlobToLibrary(b, name, "_circle", "circle");
 }
 
 /* ========== Mode switch ========== */

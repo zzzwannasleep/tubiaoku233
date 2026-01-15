@@ -1,11 +1,13 @@
-from flask import Flask, request, jsonify, render_template, Response, url_for
+from flask import Flask, request, jsonify, render_template, Response, url_for, redirect
 import requests
 import os
 import json
+import base64
 import random
 import time
 from functools import wraps
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from urllib.parse import quote
 
 app = Flask(__name__,
             static_folder=os.path.join(os.path.dirname(__file__), '../static'),
@@ -76,6 +78,29 @@ GITHUB_USER = os.getenv("GITHUB_USER", "YOUR_GITHUB_USER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "YOUR_GITHUB_TOKEN")
 GIST_FILE_NAME = "icons.json"
 
+# GitHub Repo -> Gist 分流（UPLOAD_SERVICE=GITHUB + github_folder 时使用）
+GITHUB_GIST_FILE_SQUARE = (os.getenv("GITHUB_GIST_FILE_SQUARE", "icons-square.json") or "").strip()
+GITHUB_GIST_FILE_CIRCLE = (os.getenv("GITHUB_GIST_FILE_CIRCLE", "icons-circle.json") or "").strip()
+GITHUB_GIST_FILE_TRANSPARENT = (os.getenv("GITHUB_GIST_FILE_TRANSPARENT", "icons-transparent.json") or "").strip()
+
+# GitHub Repo 图床配置（UPLOAD_SERVICE=GITHUB 时使用）
+GITHUB_REPO = os.getenv("GITHUB_REPO", "").strip()  # owner/repo
+GITHUB_REPO_OWNER = os.getenv("GITHUB_REPO_OWNER", "").strip()
+GITHUB_REPO_NAME = os.getenv("GITHUB_REPO_NAME", "").strip()
+GITHUB_REPO_BRANCH = (os.getenv("GITHUB_REPO_BRANCH", "main") or "main").strip()
+GITHUB_REPO_DIR = (os.getenv("GITHUB_REPO_DIR", "images") or "images").strip().strip("/")
+GITHUB_REPO_TOKEN = os.getenv("GITHUB_REPO_TOKEN", "").strip()  # 可与 GITHUB_TOKEN 不同
+GITHUB_REPO_URL_MODE = (os.getenv("GITHUB_REPO_URL_MODE", "RAW") or "RAW").strip().upper()
+GITHUB_REPO_URL_PREFIX = os.getenv("GITHUB_REPO_URL_PREFIX", "").strip()
+GITHUB_REPO_COMMIT_MESSAGE = os.getenv("GITHUB_REPO_COMMIT_MESSAGE", "").strip()
+
+if os.getenv("UPLOAD_SERVICE", "").upper() == "GITHUB":
+    if not (GITHUB_REPO or (GITHUB_REPO_OWNER and GITHUB_REPO_NAME)):
+        print("警告：UPLOAD_SERVICE=GITHUB 但未配置 GITHUB_REPO 或 GITHUB_REPO_OWNER/GITHUB_REPO_NAME")
+    token = (GITHUB_REPO_TOKEN or "").strip() or (GITHUB_TOKEN or "").strip()
+    if not token or token.startswith("YOUR_"):
+        print("警告：UPLOAD_SERVICE=GITHUB 但未配置 GITHUB_REPO_TOKEN / GITHUB_TOKEN，图床上传将失败")
+
 # 警告检查
 if os.getenv("UPLOAD_SERVICE", "").upper() == "PICUI" and not PICUI_TOKEN:
     print("警告：UPLOAD_SERVICE=PICUI 但 PICUI_TOKEN 未配置，PICUI 上传将全部失败（强制 Token 模式）")
@@ -91,32 +116,34 @@ def get_gist_data():
     r.raise_for_status()
     return r.json()
 
-def update_gist_data(content):
-    """更新 Gist 数据（替换整个 icons.json 文件内容）"""
+def update_gist_data(content, file_name=GIST_FILE_NAME):
+    """更新 Gist 数据（替换整个文件内容）"""
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
     }
-    data = {"files": {GIST_FILE_NAME: {"content": json.dumps(content, indent=2)}}}
+    file_name = (file_name or GIST_FILE_NAME or "icons.json").strip()
+    data = {"files": {file_name: {"content": json.dumps(content, ensure_ascii=False, indent=2)}}}
     response = requests.patch(f"https://api.github.com/gists/{GIST_ID}", json=data, headers=headers, timeout=30)
     if response.status_code != 200:
         raise Exception(f"更新 Gist 失败：{response.text}")
     return response.json()
 
-def _update_gist_with_retry(content, max_retry=3):
+def _update_gist_with_retry(content, file_name=GIST_FILE_NAME, max_retry=3):
     """对 Gist PATCH 做指数退避重试，缓解偶发失败/流控"""
     last_err = None
     for i in range(max_retry):
         try:
-            return update_gist_data(content)
+            return update_gist_data(content, file_name=file_name)
         except Exception as e:
             last_err = e
             time.sleep(2 ** i)  # 1s,2s,4s
     raise last_err
 
-def _read_icons_json_from_gist():
+def _read_icons_json_from_gist(file_name=GIST_FILE_NAME):
     gist = get_gist_data()
-    icons_raw = gist.get("files", {}).get(GIST_FILE_NAME, {}).get("content", "{}")
+    file_name = (file_name or GIST_FILE_NAME or "icons.json").strip()
+    icons_raw = gist.get("files", {}).get(file_name, {}).get("content", "{}")
     content = json.loads(icons_raw) if isinstance(icons_raw, str) else icons_raw
     if not isinstance(content, dict):
         content = {}
@@ -136,14 +163,14 @@ def get_unique_name(name, json_content):
         counter += 1
     return f"{base_name}{counter}"
 
-def batch_append_to_gist(new_items):
+def batch_append_to_gist(new_items, file_name=GIST_FILE_NAME):
     """
     一次性将 new_items 列表追加到 Gist
     new_items: [{"name": "raw_name", "url": "http..."}]
     Return: 更新后的 items (包含去重后的最终名称)
     """
     try:
-        content = _read_icons_json_from_gist()
+        content = _read_icons_json_from_gist(file_name=file_name)
         saved_chunk = []
 
         for item in new_items:
@@ -154,7 +181,7 @@ def batch_append_to_gist(new_items):
             })
             saved_chunk.append({"name": final_name, "url": item["url"]})
 
-        _update_gist_with_retry(content)
+        _update_gist_with_retry(content, file_name=file_name)
         return saved_chunk
     except Exception as e:
         print(f"Gist 批量更新失败: {e}")
@@ -191,6 +218,30 @@ def icons_json():
         return Response(json.dumps(content, ensure_ascii=False, indent=2), mimetype="application/json")
     except Exception as e:
         return jsonify({"error": "无法读取 icons.json", "details": str(e)}), 500
+
+@app.get("/icons-square.json")
+def icons_square_json():
+    try:
+        content = _read_icons_json_from_gist(file_name=_github_gist_file_for_folder("square"))
+        return Response(json.dumps(content, ensure_ascii=False, indent=2), mimetype="application/json")
+    except Exception as e:
+        return jsonify({"error": "无法读取 icons-square.json", "details": str(e)}), 500
+
+@app.get("/icons-circle.json")
+def icons_circle_json():
+    try:
+        content = _read_icons_json_from_gist(file_name=_github_gist_file_for_folder("circle"))
+        return Response(json.dumps(content, ensure_ascii=False, indent=2), mimetype="application/json")
+    except Exception as e:
+        return jsonify({"error": "无法读取 icons-circle.json", "details": str(e)}), 500
+
+@app.get("/icons-transparent.json")
+def icons_transparent_json():
+    try:
+        content = _read_icons_json_from_gist(file_name=_github_gist_file_for_folder("transparent"))
+        return Response(json.dumps(content, ensure_ascii=False, indent=2), mimetype="application/json")
+    except Exception as e:
+        return jsonify({"error": "无法读取 icons-transparent.json", "details": str(e)}), 500
 
 # ===== 图片上传实现 =====
 
@@ -253,6 +304,193 @@ def upload_to_picui(image):
         return None
 
 # ===== Admin 后台：PICUI 列表/删除接口封装 =====
+# ===== GitHub Repo 图床实现 =====
+
+def _github_repo_owner_and_name():
+    repo = (GITHUB_REPO or "").strip()
+    if repo and "/" in repo:
+        owner, name = repo.split("/", 1)
+        owner = owner.strip()
+        name = name.strip()
+        if owner and name:
+            return owner, name
+
+    owner = (GITHUB_REPO_OWNER or "").strip()
+    name = (GITHUB_REPO_NAME or "").strip()
+    if owner and name:
+        return owner, name
+
+    raise Exception("GitHub Repo 未配置：请设置 GITHUB_REPO=owner/repo 或 GITHUB_REPO_OWNER/GITHUB_REPO_NAME")
+
+
+def _github_repo_token():
+    token = (GITHUB_REPO_TOKEN or "").strip()
+    if token:
+        return token
+
+    token = (GITHUB_TOKEN or "").strip()
+    if token and not token.startswith("YOUR_"):
+        return token
+
+    raise Exception("GitHub Token 未配置：请设置 GITHUB_REPO_TOKEN（或复用 GITHUB_TOKEN）")
+
+
+def _github_repo_headers():
+    token = _github_repo_token()
+    return {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+
+def _guess_image_ext(filename: str, mimetype: str):
+    ext = os.path.splitext(filename or "")[1].lower()
+    if ext:
+        return ext
+
+    mt = (mimetype or "").lower()
+    if mt in ("image/jpeg", "image/jpg"):
+        return ".jpg"
+    if mt == "image/png":
+        return ".png"
+    if mt == "image/gif":
+        return ".gif"
+    if mt == "image/webp":
+        return ".webp"
+    if mt in ("image/svg+xml", "image/svg"):
+        return ".svg"
+
+    return ".png"
+
+
+def _sanitize_repo_filename_base(name: str):
+    name = (name or "").strip()
+    name = name.replace("/", "-").replace("\\", "-").replace("\x00", "")
+    return name or "image"
+
+
+def _github_repo_commit_message(filename: str):
+    tmpl = (GITHUB_REPO_COMMIT_MESSAGE or "").strip()
+    if tmpl:
+        return tmpl.replace("{filename}", filename)
+    return f"Upload {filename}"
+
+
+def _github_repo_build_file_url(owner: str, repo: str, branch: str, rel_path: str):
+    rel_path_q = quote((rel_path or "").lstrip("/"), safe="/")
+    mode = (GITHUB_REPO_URL_MODE or "RAW").strip().upper()
+
+    if mode == "JSDELIVR":
+        return f"https://cdn.jsdelivr.net/gh/{owner}/{repo}@{branch}/{rel_path_q}"
+
+    if mode == "PREFIX":
+        prefix = (GITHUB_REPO_URL_PREFIX or "").strip()
+        if not prefix:
+            raise Exception("GITHUB_REPO_URL_PREFIX 为空：请在 GITHUB_REPO_URL_MODE=PREFIX 时配置它")
+        if not prefix.endswith("/"):
+            prefix += "/"
+        return prefix + rel_path_q
+
+    if mode != "RAW":
+        raise Exception("GITHUB_REPO_URL_MODE 仅支持 RAW / JSDELIVR / PREFIX")
+
+    return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{rel_path_q}"
+
+
+def _github_repo_put_new_file(owner: str, repo: str, branch: str, rel_path: str, content_b64: str, message: str):
+    api_path = quote((rel_path or "").lstrip("/"), safe="/")
+    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{api_path}"
+    payload = {"message": message, "content": content_b64, "branch": branch}
+
+    r = requests.put(url, headers=_github_repo_headers(), json=payload, timeout=30)
+    if r.status_code in (200, 201):
+        return True, None
+
+    try:
+        j = r.json()
+    except Exception:
+        j = None
+
+    if r.status_code == 422 and isinstance(j, dict):
+        msg = (j.get("message") or "").lower()
+        errors = j.get("errors") or []
+        if "sha" in msg:
+            return False, "exists"
+        for e in errors:
+            if isinstance(e, dict) and (e.get("field") or "").lower() == "sha":
+                return False, "exists"
+
+    raise Exception(f"GitHub Repo 上传失败：HTTP {r.status_code} {r.text}")
+
+def _normalize_github_folder(raw: str):
+    key = (raw or "").strip().lower()
+    mapping = {
+        "square": "square",
+        "rect": "square",
+        "box": "square",
+        "方形": "square",
+        "circle": "circle",
+        "round": "circle",
+        "圆形": "circle",
+        "transparent": "transparent",
+        "alpha": "transparent",
+        "透明": "transparent",
+    }
+    return mapping.get(key, "")
+
+
+def _github_gist_file_for_folder(folder: str):
+    folder = _normalize_github_folder(folder)
+    if folder == "square":
+        return (GITHUB_GIST_FILE_SQUARE or "").strip() or GIST_FILE_NAME
+    if folder == "circle":
+        return (GITHUB_GIST_FILE_CIRCLE or "").strip() or GIST_FILE_NAME
+    if folder == "transparent":
+        return (GITHUB_GIST_FILE_TRANSPARENT or "").strip() or GIST_FILE_NAME
+    return GIST_FILE_NAME
+
+def upload_to_github_repo(image, icon_name: str, folder: str = ""):
+    owner, repo = _github_repo_owner_and_name()
+    branch = (GITHUB_REPO_BRANCH or "main").strip() or "main"
+    repo_dir = (GITHUB_REPO_DIR or "").strip().strip("/")
+    folder = _normalize_github_folder(folder)
+    if folder:
+        repo_dir = f"{repo_dir}/{folder}" if repo_dir else folder
+
+    base = _sanitize_repo_filename_base(icon_name or os.path.splitext(getattr(image, "filename", "") or "")[0] or "image")
+    ext = _guess_image_ext(getattr(image, "filename", "") or "", getattr(image, "mimetype", "") or "")
+
+    try:
+        image.stream.seek(0)
+    except Exception:
+        pass
+    raw_bytes = image.read()
+    if not raw_bytes:
+        raise Exception("空文件")
+    content_b64 = base64.b64encode(raw_bytes).decode("utf-8")
+
+    for i in range(0, 100):
+        suffix = "" if i == 0 else str(i)
+        filename = f"{base}{suffix}{ext}"
+        rel_path = f"{repo_dir}/{filename}" if repo_dir else filename
+
+        ok, reason = _github_repo_put_new_file(
+            owner=owner,
+            repo=repo,
+            branch=branch,
+            rel_path=rel_path,
+            content_b64=content_b64,
+            message=_github_repo_commit_message(filename),
+        )
+        if ok:
+            return _github_repo_build_file_url(owner, repo, branch, rel_path)
+        if reason == "exists":
+            continue
+
+    raise Exception("GitHub Repo 重名过多，无法生成唯一文件名")
+
+# ===== Admin åŽå°ï¼šPICUI åˆ—è¡¨/åˆ é™¤æŽ¥å£å°è£… =====
 PICUI_API_BASE = "https://picui.cn/api/v1"
 
 def _picui_headers():
@@ -278,7 +516,31 @@ def picui_delete_by_key(key: str):
 
 @app.route("/")
 def home():
+    upload_service = os.getenv("UPLOAD_SERVICE", "PICGO").upper()
+    if upload_service == "GITHUB":
+        return redirect(url_for("github_upload"))
     return render_template("index.html", github_user=GITHUB_USER, gist_id=GIST_ID)
+
+@app.route("/github")
+def github_upload():
+    if os.getenv("UPLOAD_SERVICE", "PICGO").upper() != "GITHUB":
+        return redirect(url_for("home"))
+    repo = (GITHUB_REPO or "").strip()
+    if not repo and GITHUB_REPO_OWNER and GITHUB_REPO_NAME:
+        repo = f"{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}"
+    return render_template(
+        "github.html",
+        repo=repo,
+        branch=GITHUB_REPO_BRANCH,
+        base_dir=GITHUB_REPO_DIR,
+        gist_square=url_for("icons_square_json"),
+        gist_circle=url_for("icons_circle_json"),
+        gist_transparent=url_for("icons_transparent_json"),
+        gist_all=url_for("icons_json"),
+        gist_file_square=_github_gist_file_for_folder("square"),
+        gist_file_circle=_github_gist_file_for_folder("circle"),
+        gist_file_transparent=_github_gist_file_for_folder("transparent"),
+    )
 
 @app.route("/editor")
 def editor():
@@ -421,10 +683,21 @@ def upload_image():
 
         raw_name = (request.form.get("name") or "").strip()
         upload_service = os.getenv("UPLOAD_SERVICE", "PICGO").upper()
+        github_folder = (request.form.get("github_folder") or "").strip()
+        gist_file_name = GIST_FILE_NAME
+        if upload_service == "GITHUB":
+            gist_file_name = _github_gist_file_for_folder(github_folder)
 
         final_results = []
         pending_batch = []
         BATCH_SIZE = 10
+
+        gist_cache_for_unique_name = None
+        if upload_service == "GITHUB":
+            try:
+                gist_cache_for_unique_name = _read_icons_json_from_gist(file_name=gist_file_name)
+            except Exception:
+                gist_cache_for_unique_name = {"icons": []}
 
         for image in images:
             if not image or not getattr(image, "filename", ""):
@@ -432,6 +705,12 @@ def upload_image():
 
             auto_name = os.path.splitext(image.filename)[0]
             name = raw_name or auto_name
+
+            if upload_service == "GITHUB" and isinstance(gist_cache_for_unique_name, dict):
+                try:
+                    name = get_unique_name(name, gist_cache_for_unique_name)
+                except Exception:
+                    pass
 
             upload_err = None
             image_url = None
@@ -444,6 +723,8 @@ def upload_image():
                         upload_err = "PICUI_TOKEN 未配置"
                     else:
                         image_url = upload_to_picui(image)
+                elif upload_service == "GITHUB":
+                    image_url = upload_to_github_repo(image, name, github_folder)
                 else:
                     image_url = upload_to_picgo(image)
             except Exception as e:
@@ -457,10 +738,12 @@ def upload_image():
                 })
             else:
                 pending_batch.append({"name": name, "url": image_url})
+                if upload_service == "GITHUB" and isinstance(gist_cache_for_unique_name, dict):
+                    gist_cache_for_unique_name.setdefault("icons", []).append({"name": name, "url": image_url})
 
             if len(pending_batch) >= BATCH_SIZE:
                 try:
-                    saved_items = batch_append_to_gist(pending_batch)
+                    saved_items = batch_append_to_gist(pending_batch, file_name=gist_file_name)
                     for item in saved_items:
                         final_results.append({"ok": True, "name": item["name"], "url": item["url"]})
                     pending_batch = []
@@ -476,7 +759,7 @@ def upload_image():
 
         if pending_batch:
             try:
-                saved_items = batch_append_to_gist(pending_batch)
+                saved_items = batch_append_to_gist(pending_batch, file_name=gist_file_name)
                 for item in saved_items:
                     final_results.append({"ok": True, "name": item["name"], "url": item["url"]})
             except Exception as e:

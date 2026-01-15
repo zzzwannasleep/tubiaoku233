@@ -141,6 +141,9 @@ input[type="file"]::-webkit-file-upload-button:hover{
   justify-content:center;
   align-items:center;
 }
+.btn-row + .btn-row{
+  margin-top: 12px;
+}
 
 /* ✅ 主按钮（改成 .upload-btn，让 <a> 也吃到同款样式） */
 .upload-btn{

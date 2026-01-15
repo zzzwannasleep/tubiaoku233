@@ -1,0 +1,62 @@
+/* GitHub 图床模式：分类文件夹选择 */
+
+.hint-small{
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(107,111,134,.9);
+}
+
+.folder-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.folder-btn{
+  appearance: none;
+  border: 1px solid rgba(140,160,210,.22);
+  background: rgba(255,255,255,.58);
+  border-radius: 16px;
+  padding: 12px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+}
+
+.folder-btn:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.75);
+  box-shadow: 0 12px 22px rgba(35,50,90,.10);
+}
+
+.folder-btn.active{
+  border-color: rgba(124,107,255,.55);
+  box-shadow:
+    0 0 0 4px rgba(124,107,255,.12),
+    0 14px 26px rgba(57,213,255,.10);
+}
+
+.folder-title{
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.folder-sub{
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(107,111,134,.85);
+  word-break: break-all;
+}
+
+.folder-current{
+  margin-top: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(107,111,134,.92);
+}
+
+@media (max-width: 600px){
+  .folder-grid{
+    grid-template-columns: 1fr;
+  }
+}

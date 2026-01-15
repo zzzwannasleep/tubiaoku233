@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub 图床模式 · Zzzの图标库</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=stable_20260115A">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/github.css') }}?v=gh_20260115A">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}" type="image/png">
+</head>
+
+<body>
+  <div class="container">
+    <h1>GitHub 图床模式</h1>
+
+    <div class="name-hint">
+      <div>仓库：<b>{{ repo or "未配置" }}</b> · 分支：<b>{{ branch }}</b> · 目录：<b>{{ base_dir }}</b></div>
+      <div class="hint-small">选择分类文件夹后，一键上传；会自动同步写入对应分类的 JSON（方形 / 圆形 / 透明）</div>
+    </div>
+
+    <div class="form-group">
+      <label>选择上传文件夹</label>
+      <div class="folder-grid" id="folderGrid">
+        <button class="folder-btn active" type="button" data-folder="square">
+          <div class="folder-title">方形</div>
+          <div class="folder-sub">{{ base_dir }}/square</div>
+        </button>
+
+        <button class="folder-btn" type="button" data-folder="circle">
+          <div class="folder-title">圆形</div>
+          <div class="folder-sub">{{ base_dir }}/circle</div>
+        </button>
+
+        <button class="folder-btn" type="button" data-folder="transparent">
+          <div class="folder-title">透明</div>
+          <div class="folder-sub">{{ base_dir }}/transparent</div>
+        </button>
+      </div>
+
+      <div class="folder-current" id="folderCurrent" data-base="{{ base_dir }}">当前：{{ base_dir }}/square</div>
+    </div>
+
+    <div class="form-group">
+      <label for="name">图片名称（可选；多选时自动用文件名）</label>
+      <input type="text" id="name" placeholder="留空则自动使用文件名">
+    </div>
+
+    <div class="form-group">
+      <label for="image">选择图片（支持多选）</label>
+      <input type="file" id="image" accept="image/*" multiple>
+    </div>
+
+    <div class="btn-row">
+      <a class="upload-btn link-btn" href="/editor" target="_blank">图标编辑</a>
+      <button class="upload-btn" id="btnUpload">上传到 GitHub</button>
+    </div>
+
+    <div id="message"></div>
+    <ul id="resultList"></ul>
+
+    <p class="centered-link">
+      <a target="_blank" href="{{ gist_square }}" title="{{ gist_file_square }}">
+        <img src="https://cdn-icons-png.flaticon.com/512/136/136525.png" alt="GitHub" class="github-icon">
+        方形 JSON
+      </a>
+      <a target="_blank" href="{{ gist_circle }}" title="{{ gist_file_circle }}">
+        <img src="https://cdn-icons-png.flaticon.com/512/136/136525.png" alt="GitHub" class="github-icon">
+        圆形 JSON
+      </a>
+      <a target="_blank" href="{{ gist_transparent }}" title="{{ gist_file_transparent }}">
+        <img src="https://cdn-icons-png.flaticon.com/512/136/136525.png" alt="GitHub" class="github-icon">
+        透明 JSON
+      </a>
+      {% if repo %}
+      <a target="_blank" href="https://github.com/{{ repo }}">
+        <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="github-icon">
+        打开仓库
+      </a>
+      {% endif %}
+    </p>
+
+    <p class="hint-text">
+      提示：建议仓库公开；外链模式可用 RAW / JSDELIVR / PREFIX（见 README 环境变量说明）。
+    </p>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/github.js') }}?v=gh_20260115A"></script>
+</body>
+</html>

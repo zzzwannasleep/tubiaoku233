@@ -16,7 +16,7 @@
 
 **PicStoreJson** 是一个基于 **Python + Flask** 的轻量级 Web 应用，功能包括：
 
-* 📤 图片自助上传 → 支持图床（PicGo / ImgURL / PICUI）
+* 📤 图片自助上传 → 支持图床（PicGo / ImgURL / PICUI / GitHub Repo）
 * 🧾 自动更新 GitHub Gist 的 `icons.json`（仅追加，不覆盖历史）
 * 🧩 内置 **图标在线编辑器**：裁剪、手动抠图、一键上传
 * 🤖 支持 **AI 抠图**：默认双通道（Clipdrop + remove.bg）自动均衡；支持密码解锁的「自定义AI模式」
@@ -105,7 +105,7 @@ project/
 
 > **说明**：Deploy 按钮只能预设环境变量的名字，变量值需要在 Vercel 上手动填写。
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Zzzwannasleep/tubiaoku233&env=GIST_ID,GITHUB_USER,GITHUB_TOKEN,UPLOAD_SERVICE,PICGO_API_KEY,IMGURL_API_UID,IMGURL_API_TOKEN,IMGURL_ALBUM_ID,PICUI_TOKEN,PICUI_PERMISSION,PICUI_STRATEGY_ID,PICUI_ALBUM_ID,PICUI_EXPIRED_AT,CLIPDROP_API_KEY,REMOVEBG_API_KEY,FLASK_SECRET_KEY,CUSTOM_AI_ENABLED,CUSTOM_AI_PASSWORD,CUSTOM_AI_URL,CUSTOM_AI_FILE_FIELD,CUSTOM_AI_API_KEY,CUSTOM_AI_AUTH_HEADER,CUSTOM_AI_AUTH_PREFIX,ADMIN_ENABLED,ADMIN_PASSWORD,ADMIN_COOKIE_MAX_AGE,RANDOM_BG_API&envDescription=API%20Keys%20and%20GitHub%20Gist%20config%20%2B%20Admin%20Panel&project-name=tubiaoku233&repo-name=tubiaoku233)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Zzzwannasleep/tubiaoku233&env=GIST_ID,GITHUB_USER,GITHUB_TOKEN,GITHUB_GIST_FILE_SQUARE,GITHUB_GIST_FILE_CIRCLE,GITHUB_GIST_FILE_TRANSPARENT,UPLOAD_SERVICE,GITHUB_REPO,GITHUB_REPO_OWNER,GITHUB_REPO_NAME,GITHUB_REPO_BRANCH,GITHUB_REPO_DIR,GITHUB_REPO_TOKEN,GITHUB_REPO_URL_MODE,GITHUB_REPO_URL_PREFIX,GITHUB_REPO_COMMIT_MESSAGE,PICGO_API_KEY,IMGURL_API_UID,IMGURL_API_TOKEN,IMGURL_ALBUM_ID,PICUI_TOKEN,PICUI_PERMISSION,PICUI_STRATEGY_ID,PICUI_ALBUM_ID,PICUI_EXPIRED_AT,CLIPDROP_API_KEY,REMOVEBG_API_KEY,FLASK_SECRET_KEY,CUSTOM_AI_ENABLED,CUSTOM_AI_PASSWORD,CUSTOM_AI_URL,CUSTOM_AI_FILE_FIELD,CUSTOM_AI_API_KEY,CUSTOM_AI_AUTH_HEADER,CUSTOM_AI_AUTH_PREFIX,ADMIN_ENABLED,ADMIN_PASSWORD,ADMIN_COOKIE_MAX_AGE,RANDOM_BG_API&envDescription=API%20Keys%20and%20GitHub%20Gist%2FRepo%20config%20%2B%20Admin%20Panel&project-name=tubiaoku233&repo-name=tubiaoku233)
 
 ---
 
@@ -129,7 +129,7 @@ project/
 
 | 变量名                 | 说明                                              |
 | ------------------- | ----------------------------------------------- |
-| `UPLOAD_SERVICE`    | 选择上传服务：`PICGO` / `IMGURL` / `PICUI`（推荐 `PICUI`） |
+| `UPLOAD_SERVICE`    | 选择上传服务：`PICGO` / `IMGURL` / `PICUI` / `GITHUB`（推荐 `PICUI` / `GITHUB`） |
 | `PICGO_API_KEY`     | PicGo API 密钥                                    |
 | `IMGURL_API_UID`    | ImgURL 用户 ID                                    |
 | `IMGURL_API_TOKEN`  | ImgURL Token                                    |
@@ -139,6 +139,18 @@ project/
 | `PICUI_STRATEGY_ID` | 进阶配置（可选）                                        |
 | `PICUI_ALBUM_ID`    | 上传到指定相册（可选）                                     |
 | `PICUI_EXPIRED_AT`  | 过期时间（可选）                                        |
+| `GITHUB_REPO`           | GitHub 图床仓库：`owner/repo`（推荐新建公开仓库专门存图）               |
+| `GITHUB_REPO_OWNER`     | 仓库 owner（可选，和 `GITHUB_REPO_NAME` 搭配）                         |
+| `GITHUB_REPO_NAME`      | 仓库名（可选）                                                     |
+| `GITHUB_REPO_BRANCH`    | 分支（默认 `main`）                                               |
+| `GITHUB_REPO_DIR`       | 存放目录（默认 `images`）                                         |
+| `GITHUB_REPO_TOKEN`     | Repo Token（需 Contents 写权限；留空则复用 `GITHUB_TOKEN`）          |
+| `GITHUB_REPO_URL_MODE`  | 外链模式：`RAW` / `JSDELIVR` / `PREFIX`（默认 `RAW`）              |
+| `GITHUB_REPO_URL_PREFIX`| 当 `URL_MODE=PREFIX` 时的 URL 前缀（例如 GitHub Pages）             |
+| `GITHUB_REPO_COMMIT_MESSAGE` | commit message 模板（可用 `{filename}`）                      |
+| `GITHUB_GIST_FILE_SQUARE`      | GitHub 模式：方形分类写入的 Gist 文件名（默认 `icons-square.json`）       |
+| `GITHUB_GIST_FILE_CIRCLE`      | GitHub 模式：圆形分类写入的 Gist 文件名（默认 `icons-circle.json`）       |
+| `GITHUB_GIST_FILE_TRANSPARENT` | GitHub 模式：透明分类写入的 Gist 文件名（默认 `icons-transparent.json`） |
 PS：由于我全程使用PICUI去做这个功能没有适配别的图床Api 想换别的图床同时使用完整功能的建议拿到手先让AI改一下项目先
 
 ### ✂️ AI 抠图配置（可选）
@@ -179,6 +191,11 @@ PS：由于我全程使用PICUI去做这个功能没有适配别的图床Api 想
 ---
 
 ## 🧭 使用指南
+
+### 0) GitHub 图床模式（UPLOAD_SERVICE=GITHUB）
+
+* 访问 `/` 会自动跳转到 `/github`，可选择上传到 `square / circle / transparent` 分类文件夹
+* 对应 JSON 订阅链接：`/icons-square.json`、`/icons-circle.json`、`/icons-transparent.json`
 
 ### 1) 单张上传
 
@@ -234,7 +251,8 @@ Gist 在浏览器可能会缓存，建议清除缓存或稍等再刷新。
 
 * 确认 Vercel 环境变量配置正确
 * 确认 GitHub Token 权限（gist）
-* 检查图床服务（PicGo/ImgURL/PICUI）的 API 密钥是否有效
+* 若使用 `UPLOAD_SERVICE=GITHUB`：确认 Token 具备仓库 Contents 写权限，且仓库为公开（否则 RAW/JSDELIVR 无法直接外链）
+* 检查图床服务（PicGo/ImgURL/PICUI/GitHub Repo）的 API 密钥是否有效
 
 ### 3) 管理后台无法使用？
 
@@ -249,5 +267,5 @@ Gist 在浏览器可能会缓存，建议清除缓存或稍等再刷新。
 
 ## 🙏 致谢
 
-* [PicGo](https://www.picgo.net/) / [ImgURL](https://www.imgurl.org) / [PICUI](https://picui.cn/) 提供图床服务
+* [PicGo](https://www.picgo.net/) / [ImgURL](https://www.imgurl.org) / [PICUI](https://picui.cn/) / [GitHub](https://github.com/) 提供图床服务
 * [CropperJS](https://github.com/fengyuanchen/cropperjs) 提供裁剪能力
